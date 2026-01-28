@@ -1,4 +1,5 @@
 from logging import config, debug
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
@@ -62,6 +64,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'kejani_backend.urls'
@@ -90,9 +93,11 @@ WSGI_APPLICATION = 'kejani_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-    
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+        "NAME":config("DB_NAME",defaualt="kejani_db"),
+        "USER":config("DB_USER", default="kejani_user"),
+        "PASSWORD":config("DB_HOST", default="localhost"),
+        "HOST":config("DB_PORT", default="localhost"),
+        "PORT":config("DB_PORT", default="54232"),    }
 }
 
 
@@ -131,8 +136,102 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
+#where colleststatic will put files (for production)
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
+
+
+
+# Media files (user uploads)
+MEDIA_URL = '/media/'
+MEDIA_URL = os.path.join(BASE_DIR, 'media')
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+
+
+
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Ke-jani API',
+    'DESCRIPTION': '''
+    *Ke-jani Backend API Documentation*
+
+    Welcome to the Ke-jani API - a platform that connects generosity with need.
+
+    ''',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'CONTACT': {
+        'name': 'ke-jani Support',
+        'email': 'info@ke-jani.co.ke',
+        'url': '',
+    },
+    'LICENSE': {
+        'name': 'Proprietary',
+        'url': 'https://ke-jani.co.ke/terms',
+    },
+    'EXTERNAL_DOCS': {
+        'description': 'Ke-jani Documentation',
+        'url': 'https://ke-jani.co.ke/api/docs',
+    },
+    
+    'SECURITY_DEFINITIONS': {
+        'Bearer': {
+            'type': 'apiKey',
+            'name': 'Authorization',
+            'in': 'header',
+            'description': 'JWT authorization header using the Bearer scheme. Example: "Authorization: Bearer {token}"'
+        }
+    },
+    'SECURITY': [{'Bearer': []}],
+    
+    # NEW: Additional Swagger UI settings for better JWT experience
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': False,
+        'defaultModelsExpandDepth': 1,
+        'defaultModelExpandDepth': 1,
+        'defaultModelRendering': 'example',
+        'displayRequestDuration': True,
+        'docExpansion': 'none',
+        'filter': True,
+        'operationsSorter': 'alpha',
+        'showExtensions': True,
+        'showCommonExtensions': True,
+        'tagsSorter': 'alpha',
+        'tryItOutEnabled': True,
+        'validatorUrl': None,
+    },
+    
+    # NEW: Server configuration
+    'SERVERS': [
+        {'url': 'http://127.0.0.1:8000', 'description': 'Development server'},
+        {'url': 'https://ke-jani.co.ke', 'description': 'Production server'},
+    ],
+}
+
+
+
+CORS_ALLOWED_ORIGINS=[
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
