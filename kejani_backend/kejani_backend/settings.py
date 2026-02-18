@@ -1,6 +1,7 @@
-from logging import config, debug
+from logging import debug
 import os
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -65,6 +66,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'kejani_backend.urls'
@@ -90,14 +92,17 @@ WSGI_APPLICATION = 'kejani_backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        "NAME":config("DB_NAME",defaualt="kejani_db"),
-        "USER":config("DB_USER", default="kejani_user"),
-        "PASSWORD":config("DB_HOST", default="localhost"),
-        "HOST":config("DB_PORT", default="localhost"),
-        "PORT":config("DB_PORT", default="54232"),    }
+    "default":{
+        "ENGINE":"django.db.backends.postgresql",
+        "NAME":config("DB_NAME",default="kejani"),
+        "USER":config("DB_USER",default="postgres"),
+        "PASSWORD":config("DB_PASSWORD",default=""),
+        "HOST":config("DB_HOST",default="localhost"),
+        "PORT":config("DB_PORT",default="localhost"),
+        
+    }
 }
 
 
@@ -150,8 +155,10 @@ STATICFILES_DIRS = [
 
 
 # Media files (user uploads)
+
 MEDIA_URL = '/media/'
-MEDIA_URL = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = os.path.join(BASE_DIR,'media')
+
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -224,14 +231,14 @@ SPECTACULAR_SETTINGS = {
 
 
 CORS_ALLOWED_ORIGINS=[
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-]
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]   
 
+
+#Enabling compression and caching
+STORAGE = {
+    "staticfiles":{
+        "BACKEND":"whitenoise.storage.CompressedManifestStaticFilesStorage",
+    }
+}
