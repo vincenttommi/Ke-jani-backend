@@ -3,6 +3,9 @@ from django.contrib.auth.models import AbstractUser
 from django.utils import timezone
 from django.core.validators import MinValueValidator
 import uuid
+from .managers import SoftDeleteManager
+from django.utils.text import slugify
+
 
 
 
@@ -101,3 +104,31 @@ class Unit(models.Model):
 
 
 
+    property = models.ForeignKey(Property,on_delete=models.CASCADE,related_name='units')
+    unit_number = models.CharField(max_length=50)
+    bedrooms = models.PositiveIntegerField(max_length=50)
+    rent_amount = models.DecimalField(max_digits=12,decimal_places=3,validators=[MinValueValidator(0)])
+    rent_cycle = models.CharField(
+        max_length=20,
+        choices=('monthly','Monthly',('quarterly','Quarterly'),('yearly','Yearly')),
+        default='monthly'
+    )
+
+    status = models.CharField(max_length=20,choices=STATUS_CHOICES, default='vacant',db_index=True)
+    floor = models.PositiveIntegerField(max_length=50,blank=True)
+    size_sqft = models.PositiveIntegerField(null=True,blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+
+
+
+
+
+
+
+
+class TimeStampedModel(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models
