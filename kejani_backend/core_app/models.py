@@ -1,134 +1,117 @@
 from django.db import models
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractBaseUser,BaseUserManager
 from django.utils import timezone
-from django.core.validators import MinValueValidator
-import uuid
-from .managers import SoftDeleteManager
-from django.utils.text import slugify
+
+
+
+class UserManager(BaseUserManager):
+    def create_user(self,username,email,password=None,**extra_fields):
+        if not email:
+            raise ValueError("Users must have an email address")
+        email = self.normalize_email(email)
+        user = self.model(username=username,email=email,**extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self,username,email,password=None,**extra_fields):
+        extra_fields.setdefault("is_active",1)
+        return   self.create_user(username,email,password,**extra_fields)
 
 
 
 
-
-class User(AbstractUser):
-    """    
-Unified user model with role-based access
-    """
-
-
-ROLE_CHOICES = (
-    ('admin', 'Admin'),
-    ('landlord','Landlord'),
-    ('tenant','Tenant'),
-)    
-
-
-role  = models.CharField(max_length=20,choices=ROLE_CHOICES, default=None, null=True)
-phone  = models.CharField(max_length=20,unique=True, blank=True, null=True)
-is_verified = models.BooleanField(default=False)
-created_at = models.DateTimeField(auto_now_add=True)
-updated_at =models.DateTimeField(auto_now=True)
-
-approval_status = models.CharField(
-    max_length=20,
-    choices=(('pending','Pending'),('approved','Approved'),('rejected','Rejected')),
-    default='pending',
-    db_index=True
-
-)
-
-class Meta:
-        ordering = ['-created_at']
-    
-def __str__(self):
-    return f"{self.get_full_name() ({self.role or 'unassigned'})}"
-
-
-
-class Landlord(models.Model):
-    """
-    Extend profile only for landlords
-    """
-
-    user = models.OneToOneField(User,on_delete=models.CASCADE,related_name='landlord_profile')
-    id_number = models.CharField(max_length=30,unique=True,blank=True)
-    number_of_properties = models.PositiveIntegerField(default=0)
-    subscription_tier = models.CharField(
-        max_length=20,
-        choices=(
-            ('starter','Starter'),
-            ('growth','Growth'),
-            ('professional','Professional'),
-            ('enterprise','Enterprise'),
-            ('trial','Trial'),
-        ),
-        default='Trial'
-    )
-    subscription_expires = models.DateField(null=True,blank=True)
-    sms_quota_remaining = models.PositiveIntegerField(default=100)
-
-    def __str__(self):
-        return f"Landlord:{self.user.get_full_name()}"
-
-
-class Property(models.Model):
-    landlord = models.ForeignKey(LandlordProfile, on_delete=models.CASCADE,related_name='properties')
-    name  = models.CharField(max_length=200)
-    slug = models.SlugField(max_length=220,unique=True,blank=True)
-    location = models.CharField(max_length=300)
-    description = models.TextField(blank=True)
-    total_units = models.PositiveIntegerField(default=0)
-    is_listed_publily = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now=True)
+class User(AbstractBaseUser):
+    username = models.CharField(max_length=50,unique=True)
+    email = models.EmailField(max_length=100,unique=True)
+    password_hash = models.CharField(max_length=255)
+    is_active = models.SmallIntegerField(default=1)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
+
+    objects = UserManager()
+
+    USERNAME_FIELD = "username"
+    REQUIRED_FIELD = ["email"]
+
+
+    def __str__ (self):
+        return self.username
+
+    @property
+    def is_landlord(self):
+        return self.user_roles.filter(role__role__name="landlord").exists()
+    @property
+    def is_property_manager(self):
+        return self.user_roles.filter(role__role__name="property_manager").exists()
+
+    @property
+    def is_tenant(self):
+        return self.user_roles.filter(role__role__name="tenant").exists()
+
+
+    class Role(models.Model):
+        role_name = models.CharField(max_length=50,unique=True)
+        description = models.TextField(blank=True)
+        created_at = models.DateTimeField(default=timezone.now)
+        updated_at = models.DateTimeField(auto_now=True)
+
+        def __str__(self):
+            return self.role_name
+
+
+
+class  UserRole(models.Model):
+    user = models.ForeignKey(User,on_delete=models.CASCADE,related_name="user_roles")
+    role = models.ForeignKey(Role, on_delete=models.CASCADE)
+    asssigned_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        verbose_name_plural = "Properties"
-        ordering = ['name']
+        unique_together = ("user","role"),
+        verbose_name = "User Role"
+        verbose_name_plural = "User Roles"
+
+
+
+
+class landlord(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="landlord_profile")
+    id_number = models.CharField(max_length=50,unique=True)
+    phone = models.CharField(max_length=20)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.name} ({self.landlord.user.get_full_name()})"
+        return f"Landlord: {self.username}"
 
 
 
 
-
-class Unit(models.Model):
-    STATUS_CHOICES = (
-        ('vacant','Vacant'),
-        ('occupied','Occupied'),
-        ('maintenance','Under Maintenance'),
-        ('reserved','Reserved'),
-    )
-
-
-
-    property = models.ForeignKey(Property,on_delete=models.CASCADE,related_name='units')
-    unit_number = models.CharField(max_length=50)
-    bedrooms = models.PositiveIntegerField(max_length=50)
-    rent_amount = models.DecimalField(max_digits=12,decimal_places=3,validators=[MinValueValidator(0)])
-    rent_cycle = models.CharField(
-        max_length=20,
-        choices=('monthly','Monthly',('quarterly','Quarterly'),('yearly','Yearly')),
-        default='monthly'
-    )
-
-    status = models.CharField(max_length=20,choices=STATUS_CHOICES, default='vacant',db_index=True)
-    floor = models.PositiveIntegerField(max_length=50,blank=True)
-    size_sqft = models.PositiveIntegerField(null=True,blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+class PropertyManager(models.Model):
+    user = models.OneToOneField(User,on_delete=models.CASCADE,related_name="tenant_profile")
+    unit = models.ForeignKey("properties.Unit",on_delete=models.SET_NULL,null=True, related_name="current_tenant")
+    emergency_contact = models.DateField(null=True,blank=True)
+    lease_start = models.DateField(null=True,blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
 
 
+class Tenant(models.Model):
+    user = models.OneToOneField(User,on_delete=models.CASCADE, related_name="tenant_profile")
+    unit = models.ForeignKey("properties.Unit",on_delete=models.SET_NULL, null=True, related_name="current_tenant")
+    emergency_contact = models.CharField(max_length=100,blank=True)
+    lease_start = models.DateField(null=True,blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+    def __str__(self):
+        return f"Tenant:{self.user.username}"
+
+        
 
 
 
 
-
-
-
-class TimeStampedModel(models.Model):
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models
